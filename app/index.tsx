@@ -1,32 +1,20 @@
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, WebViewNavigation } from 'react-native-webview';
-
-WebBrowser.maybeCompleteAuthSession();
+import { BASE_URL, NATIVE_LOGIN_URL } from '../constants/config';
 
 export default function Index() {
   const inset = useSafeAreaInsets();
   const webViewRef = useRef<WebView>(null);
-  const [webViewKey, setWebViewKey] = useState(0); // ✅ 리마운트용 key
-  const [webViewUrl, setWebViewUrl] = useState('');
-
-  const BASE_URL =
-    Platform.OS === 'android'
-      ? 'http://10.0.2.2:3000'
-      : 'http://localhost:3000';
-
-  const NATIVE_LOGIN_URL = `${BASE_URL}/api/auth/native-login`;
-
-  // ✅ 초기 URL 설정
-  useEffect(() => {
-    setWebViewUrl(BASE_URL);
-  }, []);
+  const [webViewKey, setWebViewKey] = useState(0);
+  const [webViewUrl, setWebViewUrl] = useState(BASE_URL);
 
   const handleGoogleLogin = async () => {
-    const redirectUrl = Linking.createURL('auth');
+    // ✅ 'auth' 대신 '' (루트)로 변경
+    const redirectUrl = Linking.createURL('');
     const authUrl = `${NATIVE_LOGIN_URL}?app_redirect=${encodeURIComponent(redirectUrl)}`;
 
     const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
@@ -34,13 +22,31 @@ export default function Index() {
 
     if (result.type === 'success' && result.url) {
       const { queryParams } = Linking.parse(result.url);
+      console.log('queryParams:', JSON.stringify(queryParams));
 
       if (queryParams?.status === 'success') {
-        // ✅ 쿠키 동기화 대기 후 WebView 완전히 새로 마운트
-        setTimeout(() => {
-          setWebViewUrl(`${BASE_URL}/dashboard`);
-          setWebViewKey((prev) => prev + 1); // WebView 리마운트
-        }, 500);
+        const token = queryParams?.token as string;
+
+        if (token) {
+          const decodedToken = decodeURIComponent(token);
+          const injectJS = `
+          (function() {
+            document.cookie = "__Secure-next-auth.session-token=${decodedToken}; path=/; SameSite=None; Secure";
+            document.cookie = "next-auth.session-token=${decodedToken}; path=/; SameSite=Lax";
+            setTimeout(() => {
+              window.location.replace("${BASE_URL}/dashboard");
+            }, 300);
+          })();
+        `;
+          setTimeout(() => {
+            webViewRef.current?.injectJavaScript(injectJS);
+          }, 500);
+        } else {
+          setTimeout(() => {
+            setWebViewUrl(`${BASE_URL}/dashboard`);
+            setWebViewKey((prev) => prev + 1);
+          }, 500);
+        }
       }
     }
   };
@@ -64,32 +70,31 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      {webViewUrl ? (
-        <WebView
-          key={webViewKey} // ✅ key 바뀌면 WebView 완전히 새로 시작
-          ref={webViewRef}
-          style={{ marginTop: inset.top }}
-          source={{ uri: webViewUrl }}
-          userAgent={customUserAgent}
-          sharedCookiesEnabled={true}
-          onShouldStartLoadWithRequest={handleShouldStartLoad}
-          onNavigationStateChange={(navState: WebViewNavigation) => {
-            if (
-              navState.url.includes('accounts.google.com') ||
-              navState.url.includes('/api/auth/signin/google')
-            ) {
-              webViewRef.current?.stopLoading();
-              handleGoogleLogin();
-            }
-          }}
-        />
-      ) : null}
+      <WebView
+        key={webViewKey}
+        ref={webViewRef}
+        style={{ marginTop: inset.top }}
+        source={{ uri: webViewUrl }}
+        userAgent={customUserAgent}
+        sharedCookiesEnabled={true}
+        onShouldStartLoadWithRequest={handleShouldStartLoad}
+        onNavigationStateChange={(navState: WebViewNavigation) => {
+          if (
+            navState.url.includes('accounts.google.com') ||
+            navState.url.includes('/api/auth/signin/google')
+          ) {
+            webViewRef.current?.stopLoading();
+            handleGoogleLogin();
+          }
+        }}
+        onMessage={(event) => {
+          console.log('WebView 메시지:', event.nativeEvent.data); // 쿠키 내용 확인
+        }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
 });
