@@ -102,7 +102,7 @@ export default function Index() {
   const [webViewKey, setWebViewKey] = useState(0);
   const [webViewUrl, setWebViewUrl] = useState(BASE_URL);
 
-  const handleSocialLogin = async (provider: 'google' | 'apple') => {
+  const handleSocialLogin = async (provider: 'google' | 'apple' | 'naver') => {
     const redirectUrl = Linking.createURL('');
     const authUrl = `${NATIVE_LOGIN_URL}?provider=${provider}&app_redirect=${encodeURIComponent(redirectUrl)}`;
 
@@ -153,6 +153,12 @@ export default function Index() {
       return false;
     }
 
+    // 네이버 로그인
+    if (url.includes('nid.naver.com') || url.includes('/api/auth/signin/naver')) {
+      handleSocialLogin('naver');
+      return false;
+    }
+
     // 카드앱 딥링크 — 네이티브로 처리
     if (isCardAppUrl(url)) {
       openCardApp(url);
@@ -189,7 +195,7 @@ export default function Index() {
             navState.url.includes('/api/auth/signin/apple')
           ) {
             webViewRef.current?.stopLoading();
-            const provider = navState.url.includes('apple') ? 'apple' : 'google';
+            const provider = navState.url.includes('apple') ? 'apple' : navState.url.includes('naver') ? 'naver' : 'google';
             handleSocialLogin(provider);
           }
         }}
