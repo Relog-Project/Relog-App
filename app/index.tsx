@@ -102,16 +102,14 @@ export default function Index() {
   const [webViewKey, setWebViewKey] = useState(0);
   const [webViewUrl, setWebViewUrl] = useState(BASE_URL);
 
-  const handleGoogleLogin = async () => {
+  const handleSocialLogin = async (provider: 'google' | 'apple') => {
     const redirectUrl = Linking.createURL('');
-    const authUrl = `${NATIVE_LOGIN_URL}?app_redirect=${encodeURIComponent(redirectUrl)}`;
+    const authUrl = `${NATIVE_LOGIN_URL}?provider=${provider}&app_redirect=${encodeURIComponent(redirectUrl)}`;
 
     const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
-    console.log('result:', result);
 
     if (result.type === 'success' && result.url) {
       const { queryParams } = Linking.parse(result.url);
-      console.log('queryParams:', JSON.stringify(queryParams));
 
       if (queryParams?.status === 'success') {
         const token = queryParams?.token as string;
@@ -144,11 +142,14 @@ export default function Index() {
     const { url } = request;
 
     // Google 로그인
-    if (
-      url.includes('accounts.google.com') ||
-      url.includes('/api/auth/signin/google')
-    ) {
-      handleGoogleLogin();
+    if (url.includes('accounts.google.com') || url.includes('/api/auth/signin/google')) {
+      handleSocialLogin('google');
+      return false;
+    }
+
+    // Apple 로그인
+    if (url.includes('appleid.apple.com') || url.includes('/api/auth/signin/apple')) {
+      handleSocialLogin('apple');
       return false;
     }
 
@@ -183,10 +184,13 @@ export default function Index() {
         onNavigationStateChange={(navState: WebViewNavigation) => {
           if (
             navState.url.includes('accounts.google.com') ||
-            navState.url.includes('/api/auth/signin/google')
+            navState.url.includes('/api/auth/signin/google') ||
+            navState.url.includes('appleid.apple.com') ||
+            navState.url.includes('/api/auth/signin/apple')
           ) {
             webViewRef.current?.stopLoading();
-            handleGoogleLogin();
+            const provider = navState.url.includes('apple') ? 'apple' : 'google';
+            handleSocialLogin(provider);
           }
         }}
         onMessage={(event) => {
