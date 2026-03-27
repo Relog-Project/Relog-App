@@ -50,7 +50,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.bizbeemobile.RelogApp"
+      "package": "com.relog.app"
     },
     "web": {
       "output": "static",
