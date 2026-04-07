@@ -1,40 +1,69 @@
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
+import * as Notifications from 'expo-notifications';
 import * as WebBrowser from 'expo-web-browser';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, WebViewNavigation } from 'react-native-webview';
 import { BASE_URL, NATIVE_LOGIN_URL } from '../constants/config';
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+async function registerPushToken(): Promise<string | null> {
+  if (!Device.isDevice) return null;
+
+  const { status: existing } = await Notifications.getPermissionsAsync();
+  let finalStatus = existing;
+  if (existing !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+  if (finalStatus !== 'granted') return null;
+
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+  const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+  return tokenData.data;
+}
+
 // 카드앱 및 결제 관련 URL 스킴 목록
 const CARD_APP_SCHEMES = [
-  'ispmobile',       // ISP/페이북
+  'ispmobile', // ISP/페이북
   'shinhan-sr-ansimclick', // 신한카드
-  'kb-acp',          // KB국민카드
-  'liiv',            // KB리브
-  'lottesmartpay',   // 롯데카드
-  'lotteappcard',    // 롯데앱카드
-  'cloudpay',        // 하나카드
-  'nhallonepayapp',  // NH올원페이
-  'nhcard',          // NH카드
-  'citispay',        // 씨티카드
+  'kb-acp', // KB국민카드
+  'liiv', // KB리브
+  'lottesmartpay', // 롯데카드
+  'lotteappcard', // 롯데앱카드
+  'cloudpay', // 하나카드
+  'nhallonepayapp', // NH올원페이
+  'nhcard', // NH카드
+  'citispay', // 씨티카드
   'citicardglobal',
-  'kakaotalk',       // 카카오페이
-  'tossapp',         // 토스
-  'supertoss',       // 토스
-  'lpayapp',         // L페이
-  'samsungpay',      // 삼성페이
-  'wooripay',        // 우리카드
+  'kakaotalk', // 카카오페이
+  'tossapp', // 토스
+  'supertoss', // 토스
+  'lpayapp', // L페이
+  'samsungpay', // 삼성페이
+  'wooripay', // 우리카드
   'com.wooricard.wapps',
   'hyundaicardappcardansimclick', // 현대카드
   'ansimclick',
   'hdcardappcardansimclick',
   'smhyundaiansimclick',
   'shinhanansimclick',
-  'bankpaynow',      // 뱅크페이
+  'bankpaynow', // 뱅크페이
   'mpocket.online.ansimclick',
-  'scardcertiapp',   // 삼성카드
-  'monimopay',       // 모니모
+  'scardcertiapp', // 삼성카드
+  'monimopay', // 모니모
 ];
 
 function isCardAppUrl(url: string): boolean {
@@ -43,7 +72,11 @@ function isCardAppUrl(url: string): boolean {
 }
 
 // intent://path#Intent;scheme=xxx;package=yyy;end → xxx://path 로 재조합
-function parseIntentUrl(url: string): { appUrl: string | null; packageName: string | null; fallback: string | null } {
+function parseIntentUrl(url: string): {
+  appUrl: string | null;
+  packageName: string | null;
+  fallback: string | null;
+} {
   const schemeMatch = url.match(/scheme=([^;]+)/);
   const packageMatch = url.match(/package=([^;]+)/);
   const fallbackMatch = url.match(/S\.browser_fallback_url=([^;]+)/);
@@ -102,6 +135,25 @@ export default function Index() {
   const [webViewKey, setWebViewKey] = useState(0);
   const [webViewUrl, setWebViewUrl] = useState(BASE_URL);
 
+  useEffect(() => {
+    registerPushToken().then((token) => {
+      if (!token) return;
+      // WebView가 로드된 후 토큰을 웹앱으로 전달
+      const injectJS = `
+        (function() {
+          fetch('/api/push-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: '${token}', platform: '${Platform.OS}' }),
+          });
+        })();
+      `;
+      setTimeout(() => {
+        webViewRef.current?.injectJavaScript(injectJS);
+      }, 2000);
+    });
+  }, []);
+
   const handleSocialLogin = async (provider: 'google' | 'apple' | 'naver') => {
     const redirectUrl = Linking.createURL('');
     const authUrl = `${NATIVE_LOGIN_URL}?provider=${provider}&app_redirect=${encodeURIComponent(redirectUrl)}`;
@@ -142,19 +194,28 @@ export default function Index() {
     const { url } = request;
 
     // Google 로그인
-    if (url.includes('accounts.google.com') || url.includes('/api/auth/signin/google')) {
+    if (
+      url.includes('accounts.google.com') ||
+      url.includes('/api/auth/signin/google')
+    ) {
       handleSocialLogin('google');
       return false;
     }
 
     // Apple 로그인
-    if (url.includes('appleid.apple.com') || url.includes('/api/auth/signin/apple')) {
+    if (
+      url.includes('appleid.apple.com') ||
+      url.includes('/api/auth/signin/apple')
+    ) {
       handleSocialLogin('apple');
       return false;
     }
 
     // 네이버 로그인
-    if (url.includes('nid.naver.com') || url.includes('/api/auth/signin/naver')) {
+    if (
+      url.includes('nid.naver.com') ||
+      url.includes('/api/auth/signin/naver')
+    ) {
       handleSocialLogin('naver');
       return false;
     }
@@ -195,7 +256,11 @@ export default function Index() {
             navState.url.includes('/api/auth/signin/apple')
           ) {
             webViewRef.current?.stopLoading();
-            const provider = navState.url.includes('apple') ? 'apple' : navState.url.includes('naver') ? 'naver' : 'google';
+            const provider = navState.url.includes('apple')
+              ? 'apple'
+              : navState.url.includes('naver')
+                ? 'naver'
+                : 'google';
             handleSocialLogin(provider);
           }
         }}

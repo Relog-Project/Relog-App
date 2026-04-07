@@ -50,7 +50,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.relog.app"
+      "package": "com.relog.app",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -58,6 +59,14 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#3B82F6",
+          "sounds": []
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -74,6 +83,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3d3cb0f4-7456-4b7d-acb4-2ac5e3ed0b28"
+      }
+    },
+    "owner": "ssb2046"
   }
 }

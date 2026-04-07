@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "462354874521",
+    "project_id": "relog-c25d6",
+    "storage_bucket": "relog-c25d6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:462354874521:android:8f1797277b70b37cf5b808",
+        "android_client_info": {
+          "package_name": "com.relog.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBaYXkz2smqAQnm-cYapZseEv4B44s1ifs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
