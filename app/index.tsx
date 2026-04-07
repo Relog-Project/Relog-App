@@ -1,11 +1,10 @@
-import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, WebViewNavigation } from 'react-native-webview';
 import { BASE_URL, NATIVE_LOGIN_URL } from '../constants/config';
 
@@ -129,30 +128,45 @@ async function openCardApp(url: string) {
   }
 }
 
+function makePushTokenInjectJS(token: string, platform: string) {
+  return `
+    (function() {
+      fetch('/api/push-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ token: '${token}', platform: '${platform}' }),
+      }).then(r => r.json()).then(d => console.log('push-token:', JSON.stringify(d))).catch(e => console.warn('push-token err:', e));
+    })();
+    true;
+  `;
+}
+
 export default function Index() {
-  const inset = useSafeAreaInsets();
   const webViewRef = useRef<WebView>(null);
   const [webViewKey, setWebViewKey] = useState(0);
   const [webViewUrl, setWebViewUrl] = useState(BASE_URL);
+  const pushTokenRef = useRef<string | null>(null);
+  const tokenSentRef = useRef(false);
 
   useEffect(() => {
     registerPushToken().then((token) => {
-      if (!token) return;
-      // WebView가 로드된 후 토큰을 웹앱으로 전달
-      const injectJS = `
-        (function() {
-          fetch('/api/push-token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: '${token}', platform: '${Platform.OS}' }),
-          });
-        })();
-      `;
-      setTimeout(() => {
-        webViewRef.current?.injectJavaScript(injectJS);
-      }, 2000);
+      if (token) pushTokenRef.current = token;
     });
   }, []);
+
+  // 세션이 생긴 후(대시보드 진입 시) 토큰 전송
+  function injectPushTokenIfNeeded() {
+    if (tokenSentRef.current) return;
+    const token = pushTokenRef.current;
+    if (!token) return;
+    tokenSentRef.current = true;
+    setTimeout(() => {
+      webViewRef.current?.injectJavaScript(
+        makePushTokenInjectJS(token, Platform.OS),
+      );
+    }, 1000);
+  }
 
   const handleSocialLogin = async (provider: 'google' | 'apple' | 'naver') => {
     const redirectUrl = Linking.createURL('');
@@ -239,7 +253,6 @@ export default function Index() {
       <WebView
         key={webViewKey}
         ref={webViewRef}
-        style={{ marginTop: inset.top }}
         source={{ uri: webViewUrl }}
         userAgent={customUserAgent}
         sharedCookiesEnabled={true}
@@ -262,6 +275,14 @@ export default function Index() {
                 ? 'naver'
                 : 'google';
             handleSocialLogin(provider);
+          }
+
+          // 대시보드 진입 시 push token 전송 (세션이 생긴 후)
+          if (
+            navState.url.includes('/dashboard') &&
+            navState.loading === false
+          ) {
+            injectPushTokenIfNeeded();
           }
         }}
         onMessage={(event) => {
