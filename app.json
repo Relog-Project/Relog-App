@@ -37,9 +37,36 @@
           "bankpaynow",
           "scardcertiapp",
           "monimopay",
+          "mpocket.online.ansimclick",
+          "ispmobile",
+          "shinhan-sr-ansimclick",
+          "kb-acp",
+          "liiv",
+          "lottesmartpay",
+          "lotteappcard",
+          "cloudpay",
+          "nhallonepayapp",
+          "nhcard",
+          "citispay",
+          "citicardglobal",
+          "kakaotalk",
+          "tossapp",
+          "supertoss",
+          "lpayapp",
+          "samsungpay",
+          "wooripay",
+          "hyundaicardappcardansimclick",
+          "ansimclick",
+          "hdcardappcardansimclick",
+          "smhyundaiansimclick",
+          "shinhanansimclick",
+          "bankpaynow",
+          "scardcertiapp",
+          "monimopay",
           "mpocket.online.ansimclick"
         ]
-      }
+      },
+      "bundleIdentifier": "com.relog.app"
     },
     "android": {
       "adaptiveIcon": {
