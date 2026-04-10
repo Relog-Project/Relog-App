@@ -5,6 +5,7 @@ import * as Notifications from 'expo-notifications';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import CookieManager from '@react-native-cookies/cookies';
 import { WebView, WebViewNavigation } from 'react-native-webview';
 import { BASE_URL, NATIVE_LOGIN_URL } from '../constants/config';
 
@@ -145,7 +146,7 @@ function makePushTokenInjectJS(token: string, platform: string) {
 export default function Index() {
   const webViewRef = useRef<WebView>(null);
   const [webViewKey, setWebViewKey] = useState(0);
-  const [webViewUrl, setWebViewUrl] = useState(BASE_URL);
+  const [webViewUrl, setWebViewUrl] = useState(`${BASE_URL}dashboard`);
   const pushTokenRef = useRef<string | null>(null);
   const tokenSentRef = useRef(false);
 
@@ -182,12 +183,27 @@ export default function Index() {
 
         if (token) {
           const decodedToken = decodeURIComponent(token);
+
+          // 네이티브 쿠키 저장소에 저장 → 앱 재시작 후에도 유지
+          await CookieManager.set(BASE_URL, {
+            name: '__Secure-next-auth.session-token',
+            value: decodedToken,
+            path: '/',
+            secure: true,
+            httpOnly: true,
+          });
+          await CookieManager.set(BASE_URL, {
+            name: 'next-auth.session-token',
+            value: decodedToken,
+            path: '/',
+            secure: false,
+            httpOnly: true,
+          });
+
           const injectJS = `
           (function() {
-            document.cookie = "__Secure-next-auth.session-token=${decodedToken}; path=/; SameSite=None; Secure";
-            document.cookie = "next-auth.session-token=${decodedToken}; path=/; SameSite=Lax";
             setTimeout(() => {
-              window.location.replace("${BASE_URL}/dashboard");
+              window.location.replace("${BASE_URL}dashboard");
             }, 300);
           })();
         `;
